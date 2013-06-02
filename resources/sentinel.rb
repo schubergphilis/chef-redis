@@ -22,6 +22,8 @@ attribute :parallel_syncs,          :kind_of => Fixnum, :default => 1
 attribute :quorum,                  :kind_of => Fixnum, :default => 2
 attribute :port,                    :kind_of => Fixnum, :default => 26379
 
+attribute :redis_cluster_name,      :kind_of => String, :default => nil
+
 # Example generated config
 #sentinel monitor mymaster 127.0.0.1 6379 2
 #sentinel down-after-milliseconds mymaster 60000

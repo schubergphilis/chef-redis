@@ -67,6 +67,9 @@ default.redis.config.hash_max_ziplist_entries = 512
 default.redis.config.configure_hash_max_ziplist_value = false
 default.redis.config.hash_max_ziplist_value = 64
 
+# cluster
+default.redis.redis_cluster_name = nil #"redis_cluster"
+
 # replication
 default.redis.replication.enabled = false
 default.redis.replication.redis_replication_role = 'master' # or slave
