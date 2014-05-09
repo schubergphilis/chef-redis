@@ -17,7 +17,6 @@ attribute :monitor_port,            :kind_of => Fixnum, :default => 6379
 attribute :monitor,                 :kind_of => String
 attribute :down_after_milliseconds, :kind_of => Fixnum, :default => 60000
 attribute :failover_timeout,        :kind_of => Fixnum, :default => 900000
-attribute :can_failover,            :kind_of => [TrueClass, FalseClass], :default => true
 attribute :parallel_syncs,          :kind_of => Fixnum, :default => 1
 attribute :quorum,                  :kind_of => Fixnum, :default => 2
 attribute :port,                    :kind_of => Fixnum, :default => 26379
@@ -38,6 +37,5 @@ state_attrs(
   :monitor,
   :down_after_milliseconds,
   :failover_timeout,
-  :can_failover,
   :parallel_syncs
 )
