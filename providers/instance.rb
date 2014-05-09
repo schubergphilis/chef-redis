@@ -10,10 +10,16 @@ def load_current_resource
   new_resource.slaveof_ip   new_resource.slaveof_ip
   new_resource.slaveof_port new_resource.slaveof_port || node.redis.config.port
 
-  if new_resource.slaveof_ip || new_resource.slaveof
-    new_resource.slaveof      new_resource.slaveof || "#{new_resource.slaveof_ip} #{new_resource.slaveof_port}"
+  new_resource.redis_cluster_name new_resource.redis_cluster_name || node.redis.redis_cluster_name
+
+  if new_resource.redis_cluster_name
+    new_resource.slaveof   get_cluster_master
+  else
+    if new_resource.slaveof_ip || new_resource.slaveof
+      new_resource.slaveof      new_resource.slaveof || "#{new_resource.slaveof_ip} #{new_resource.slaveof_port}"
+    end
   end
-    
+
   new_resource.configure_no_appendfsync_on_rewrite
   new_resource.configure_slowlog
   new_resource.configure_list_max_ziplist
@@ -164,5 +170,52 @@ def redis_service
     "redis"
   else
     "redis-#{new_resource.name}"
+  end
+end
+
+def get_cluster_master
+  return if node.redis.redis_cluster_name.empty?
+
+  #Search for all redis nodes on cluster
+  redis_hosts = search(
+    :node,
+    "redis_cluster_name:#{node.redis.redis_cluster_name} AND \
+    recipes:redis\\:\\:server AND \
+    chef_environment:#{node.chef_environment}"
+  )
+
+  #Remove self from list
+  redis_hosts.reject!{|n| n.fqdn == node.fqdn}
+
+  if redis_hosts.any?
+    #Try to connect to first redis
+    #TODO IMPLEMENT RESCUE AND TRY IF TIMEOUT
+    redis_host_connection = "#{::File.join(node.redis.dst_dir, 'bin/redis-cli')} \
+        -h #{redis_hosts.first.fqdn} \
+        -p #{redis_hosts.first.redis.config.port}"
+
+    redis_role = %x{ #{redis_host_connection} info | grep ^role }.chomp!
+    if redis_role.end_with?("master")
+      # First is the master
+      master_host = redis_hosts.first.fqdn
+      master_port = redis_hosts.first.redis.config.port
+    else
+      # Get master info
+      master_host = %x[
+        #{redis_host_connection} info | grep ^master_host
+      ].chomp.split(/master_host:/).pop
+
+      master_port = %x[
+        #{redis_host_connection} info | grep ^master_port
+      ].chomp.split(/master_port:/).pop
+    end
+  end
+
+  if master_host && master_host != node.fqdn
+    # Slave
+    return "#{master_host} #{master_port.to_s}"
+  else
+    # Master
+    return
   end
 end

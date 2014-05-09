@@ -28,6 +28,8 @@ attribute :slaveof,        :kind_of => String, :default => nil
 attribute :slaveof_ip,     :kind_of => String, :default => nil
 attribute :slaveof_port,   :kind_of => Integer, :default => nil
 
+attribute :redis_cluster_name, :kind_of => String, :default => nil
+
 ###
 ## the following configuration settings may only work with a recent redis release
 ###

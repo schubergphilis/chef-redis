@@ -5,7 +5,15 @@ def load_current_resource
 
   new_resource.state # Load attributes
 
-  monitor_string = [new_resource.monitor_address, new_resource.monitor_port, new_resource.quorum].join(" ")
+  new_resource.redis_cluster_name new_resource.redis_cluster_name || node.redis.redis_cluster_name
+
+  if new_resource.redis_cluster_name
+    monitor_string = [get_cluster_master, new_resource.quorum].join(" ")
+  else
+    monitor_string = [new_resource.monitor_address, new_resource.monitor_port, new_resource.quorum].join(" ")
+  end
+
+  Chef::Log.info(monitor_string)
   new_resource.monitor     new_resource.monitor   || monitor_string
 end
 
@@ -81,5 +89,52 @@ end
 def enable_service
   service "redis-sentinel-#{new_resource.name}" do
     action [:enable, :start]
+  end
+end
+
+def get_cluster_master
+  return if node.redis.redis_cluster_name.empty?
+
+  #Search for all redis nodes on cluster
+  redis_hosts = search(
+    :node,
+    "redis_cluster_name:#{node.redis.redis_cluster_name} AND \
+    recipes:redis\\:\\:server AND \
+    chef_environment:#{node.chef_environment}"
+  )
+
+  #Remove self from list
+  redis_hosts.reject!{|n| n.fqdn == node.fqdn}
+
+  if redis_hosts.any?
+    #Try to connect to first redis
+    #TODO IMPLEMENT RESCUE AND TRY IF TIMEOUT
+    redis_host_connection = "#{::File.join(node.redis.dst_dir, 'bin/redis-cli')} \
+        -h #{redis_hosts.first.fqdn} \
+        -p #{redis_hosts.first.redis.config.port}"
+
+    redis_role = %x{ #{redis_host_connection} info | grep ^role }.chomp!
+    if redis_role.end_with?("master")
+      # First is the master
+      master_host = redis_hosts.first.fqdn
+      master_port = redis_hosts.first.redis.config.port
+    else
+      # Get master info
+      master_host = %x[
+        #{redis_host_connection} info | grep ^master_host
+      ].chomp.split(/master_host:/).pop
+
+      master_port = %x[
+        #{redis_host_connection} info | grep ^master_port
+      ].chomp.split(/master_port:/).pop
+    end
+  end
+
+  if master_host
+    # Slave
+    return "#{master_host} #{master_port.to_s}"
+  else
+    # Master
+    return
   end
 end
