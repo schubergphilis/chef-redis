@@ -195,23 +195,25 @@ def get_cluster_master
         -p #{redis_hosts.first.redis.config.port}"
 
     redis_role = %x{ #{redis_host_connection} info | grep ^role }.chomp!
-    if redis_role.end_with?("master")
-      # First is the master
-      master_host = redis_hosts.first.fqdn
-      master_port = redis_hosts.first.redis.config.port
-    else
-      # Get master info
-      master_host = %x[
-        #{redis_host_connection} info | grep ^master_host
-      ].chomp.split(/master_host:/).pop
+    if redis_role.kind_of?(String)
+      if redis_role.end_with?("master")
+        # First is the master
+        master_host = redis_hosts.first.fqdn
+        master_port = redis_hosts.first.redis.config.port
+      else
+        # Get master info
+        master_host = %x[
+          #{redis_host_connection} info | grep ^master_host
+        ].chomp.split(/master_host:/).pop
 
-      master_port = %x[
-        #{redis_host_connection} info | grep ^master_port
-      ].chomp.split(/master_port:/).pop
+        master_port = %x[
+          #{redis_host_connection} info | grep ^master_port
+        ].chomp.split(/master_port:/).pop
+      end
     end
   end
 
-  if master_host && master_host != node.fqdn
+  if master_host && master_host != node.fqdn && master_host != node.ipaddress
     # Slave
     return "#{master_host} #{master_port.to_s}"
   else
